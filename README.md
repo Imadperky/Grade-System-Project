@@ -53,7 +53,7 @@ For Students:
     .Mobile-friendly layouts
 
 **Link for the respository:**
-https://github.com/Imadperky/Grade-System-Project.git
+[ https://github.com/Imadperky/Grade-System-Project.git ]
 
 **Install dependencies:**
         npm install
