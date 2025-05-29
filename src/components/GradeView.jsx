@@ -1,22 +1,29 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { db } from "../Firebase";
+import { doc, getDoc } from "firebase/firestore";
 
-const GradeView = ({ user, grades }) => {
-  const studentGrades = grades[user.name];
+const GradeView = () => {
+  const [grades, setGrades] = useState({});
+
+  useEffect(() => {
+    const fetchGrades = async () => {
+      const docRef = doc(db, "Grades", "Fs0aBoxnkY6oJGYJnA58");
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setGrades(docSnap.data());
+      }
+    };
+    fetchGrades();
+  }, []);
 
   return (
-    <div className="border p-4 rounded">
-      <h3 className="text-lg font-semibold mb-2">My Grades</h3>
-      {!studentGrades ? (
-        <p>No grades yet.</p>
-      ) : (
-        <ul>
-          {Object.entries(studentGrades).map(([subject, grade]) => (
-            <li key={subject}>
-              {subject}: <strong>{grade}</strong>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div>
+      <h2>Grades</h2>
+      <ul>
+        {Object.entries(grades).map(([student, grade]) => (
+          <li key={student}>{student}: {grade}</li>
+        ))}
+      </ul>
     </div>
   );
 };
