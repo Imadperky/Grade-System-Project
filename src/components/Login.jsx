@@ -10,30 +10,30 @@ const Login = ({ setUser }) => {
   const [error, setError] = useState("");
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setError("Email and password required");
+    if (!email || !password || !name) {
+      setError("Name, email, and password are required");
       return;
     }
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      setUser({ name, role, email: userCredential.user.email });
       localStorage.setItem("userRole", role);
       localStorage.setItem("userName", name);
+      setUser({ name, role, email: userCredential.user.email });
     } catch (err) {
       setError("Login failed: " + err.message);
     }
   };
 
   const handleSignup = async () => {
-    if (!email || !password) {
-      setError("Email and password required");
+    if (!email || !password || !name) {
+      setError("Name, email, and password are required");
       return;
     }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      setUser({ name, role, email: userCredential.user.email });
       localStorage.setItem("userRole", role);
       localStorage.setItem("userName", name);
+      setUser({ name, role, email: userCredential.user.email });
     } catch (err) {
       setError("Signup failed: " + err.message);
     }
