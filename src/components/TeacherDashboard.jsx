@@ -1,30 +1,35 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FiLogOut, FiSave, FiFile, FiBook, FiAward, FiUser } from "react-icons/fi";
 import { db } from "../Firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, collection, getDocs } from "firebase/firestore";
 
-// Example grading function for TeacherDashboard or AssignmentList:
-const handleGrade = async (assignmentId, grade, user) => {
-  const ref = doc(db, "assignments", assignmentId);
-  await updateDoc(ref, {
-    grade,
-    gradedBy: user.email, // or user.uid or user.name
-  });
-};
 const TeacherDashboard = ({
-  assignments,
   setGrades,
   grades,
   assignmentGrades,
   setAssignmentGrades,
   logout,
 }) => {
+  const [assignments, setAssignments] = useState([]);
   const [gradeInputs, setGradeInputs] = useState({});
   const [assignmentInput, setAssignmentInput] = useState({});
   const [activeTab, setActiveTab] = useState("grading");
   const [searchTerm, setSearchTerm] = useState("");
-  
+
   const subjects = ["OS", "WEB", "CN", "OOP", "ML"];
+
+  // Fetch all assignments for teachers
+  useEffect(() => {
+    const fetchAssignments = async () => {
+      const q = collection(db, "assignments");
+      const snapshot = await getDocs(q);
+      setAssignments(snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })));
+    };
+    fetchAssignments();
+  }, []);
 
   const handleSubjectGradeChange = (student, subject, value) => {
     setGradeInputs((prev) => ({
@@ -42,46 +47,56 @@ const TeacherDashboard = ({
       [student]: value,
     }));
   };
-const saveGrades = async (student) => {
-  if (gradeInputs[student]) {
-    setGrades((prev) => ({
-      ...prev,
-      [student]: gradeInputs[student],
-    }));
-  }
 
-  if (assignmentInput[student]) {
-    setAssignmentGrades((prev) => ({
-      ...prev,
-      [student]: assignmentInput[student],
-    }));
-  }
-
-  // --- Firestore update logic START ---
-  const assignment = assignments.find(a => a.student === student);
-  if (assignment) {
-    try {
-      const ref = doc(db, "assignments", assignment.id);
-      await updateDoc(ref, {
-        grade: assignmentInput[student] || "",
-        subjectGrades: gradeInputs[student] || {},
-      });
-    } catch (err) {
-      console.error("Error saving grades:", err);
+  const saveGrades = async (student) => {
+    if (gradeInputs[student]) {
+      setGrades((prev) => ({
+        ...prev,
+        [student]: gradeInputs[student],
+      }));
     }
-  }
-  // --- Firestore update logic END ---
-};
-    
-   
+
+    if (assignmentInput[student]) {
+      setAssignmentGrades((prev) => ({
+        ...prev,
+        [student]: assignmentInput[student],
+      }));
+    }
+
+    // --- Firestore update logic START ---
+    const assignment = assignments.find(a => a.student === student);
+    if (assignment) {
+      try {
+        const ref = doc(db, "assignments", assignment.id);
+        await updateDoc(ref, {
+          grade: assignmentInput[student] || "",
+          subjectGrades: gradeInputs[student] || {},
+        });
+      } catch (err) {
+        console.error("Error saving grades:", err);
+      }
+    }
+    // --- Firestore update logic END ---
+  };
+
+  // Debug: Show all assignments fetched from Firestore
+  // Remove this <pre> after debugging!
+  // const debugAssignments = (
+  //   <pre style={{ background: "#f3f3f3", padding: 10, marginBottom: 20 }}>
+  //     {JSON.stringify(assignments, null, 2)}
+  //   </pre>
+  // );
 
   const filteredAssignments = assignments.filter(assignment =>
-    assignment.student.toLowerCase().includes(searchTerm.toLowerCase())
+    assignment.student?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
       <div className="max-w-6xl mx-auto">
+        {/* Debug output */}
+        {/* {debugAssignments} */}
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <div>
@@ -173,7 +188,7 @@ const saveGrades = async (student) => {
                               </h3>
                             </div>
                             <p className="text-sm text-gray-500 mt-1">
-                              Submitted on {assignment.timestamp}
+                              Submitted on {assignment.timestamp?.toDate ? assignment.timestamp.toDate().toLocaleString() : ""}
                             </p>
                           </div>
                           <button
@@ -187,7 +202,7 @@ const saveGrades = async (student) => {
                         <div className="mb-6">
                           <h4 className="text-sm font-medium text-gray-700 mb-2">Submitted Files</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {assignment.files.map((file, idx) => (
+                            {assignment.files?.map((file, idx) => (
                               <a
                                 key={idx}
                                 href={file.fileContent}
@@ -204,7 +219,7 @@ const saveGrades = async (student) => {
                                     {file.fileName}
                                   </p>
                                   <p className="text-xs text-gray-500">
-                                    {(file.fileSize / 1024).toFixed(2)} KB
+                                    {file.fileSize}
                                   </p>
                                 </div>
                               </a>

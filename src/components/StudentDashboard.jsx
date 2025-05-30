@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FiUpload, FiLogOut, FiCheckCircle, FiFile, FiAward } from "react-icons/fi";
+import { db, auth } from "../Firebase";
+import { collection, addDoc, getDocs, query, where, Timestamp } from "firebase/firestore";
 
 const StudentDashboard = ({
   user,
-  assignments,
-  setAssignments,
   assignmentGrades,
   grades,
   logout,
@@ -12,41 +12,70 @@ const StudentDashboard = ({
   const [files, setFiles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [assignments, setAssignments] = useState([]);
+
+  // Fetch assignments for this student
+  useEffect(() => {
+    const fetchAssignments = async () => {
+      if (!user?.email) return;
+      const q = query(
+        collection(db, "assignments"),
+        where("studentEmail", "==", user.email)
+      );
+      const snapshot = await getDocs(q);
+      setAssignments(
+        snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+      );
+    };
+    fetchAssignments();
+  }, [user, submitSuccess]);
 
   const handleUpload = (e) => {
     const uploadedFiles = Array.from(e.target.files).map((file) => ({
       fileName: file.name,
       fileSize: (file.size / 1024).toFixed(2) + " KB",
       fileType: file.type.split('/')[1] || file.name.split('.').pop(),
-      fileContent: URL.createObjectURL(file),
+      fileContent: file, // keep the File object for upload
     }));
     setFiles(uploadedFiles);
     setSubmitSuccess(false);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (files.length === 0) {
       alert("Please upload at least one file.");
       return;
     }
-
     setIsSubmitting(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const newAssignment = {
-        student: user.name,
-        files,
-        timestamp: new Date().toLocaleString(),
-      };
-      setAssignments((prev) => [...prev, newAssignment]);
+
+    // Prepare file data (for demo, just store names/sizes; for real, upload to storage)
+    const fileData = files.map(f => ({
+      fileName: f.fileName,
+      fileSize: f.fileSize,
+      fileType: f.fileType,
+      // fileContent: ... // You'd upload to Firebase Storage and save the URL here
+    }));
+
+    try {
+      await addDoc(collection(db, "assignments"), {
+        student: user.name,                // Student's name (for teacher dashboard)
+        studentEmail: user.email,          // Student's email
+        studentId: auth.currentUser.uid,   // Student's UID
+        files: fileData,
+        timestamp: Timestamp.now(),
+        grade: "",                         // Initialize grade field
+        subjectGrades: {},                 // Initialize subjectGrades field
+      });
       setFiles([]);
-      setIsSubmitting(false);
       setSubmitSuccess(true);
-      
-      // Reset success message after 3 seconds
       setTimeout(() => setSubmitSuccess(false), 3000);
-    }, 1500);
+    } catch (err) {
+      alert("Error submitting assignment.");
+    }
+    setIsSubmitting(false);
   };
 
   const calculateAverageGrade = () => {
@@ -159,6 +188,28 @@ const StudentDashboard = ({
                   Assignment submitted successfully!
                 </div>
               )}
+
+              {/* Assignment List */}
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">Your Submitted Assignments</h3>
+                {assignments.length === 0 ? (
+                  <p className="text-gray-500">No assignments submitted yet.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {assignments.map(a => (
+                      <li key={a.id} className="bg-gray-50 p-3 rounded-lg flex flex-col gap-1">
+                        <span className="font-medium">{a.files?.map(f => f.fileName).join(", ")}</span>
+                        <span className="text-xs text-gray-500">
+                          Submitted: {a.timestamp?.toDate ? a.timestamp.toDate().toLocaleString() : ""}
+                        </span>
+                        <span className="text-xs text-blue-700">
+                          Grade: {a.grade || "Not graded"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
 
