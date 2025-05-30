@@ -1,6 +1,16 @@
 import React, { useState } from "react";
 import { FiLogOut, FiSave, FiFile, FiBook, FiAward, FiUser } from "react-icons/fi";
+import { db } from "../Firebase";
+import { doc, updateDoc } from "firebase/firestore";
 
+// Example grading function for TeacherDashboard or AssignmentList:
+const handleGrade = async (assignmentId, grade, user) => {
+  const ref = doc(db, "assignments", assignmentId);
+  await updateDoc(ref, {
+    grade,
+    gradedBy: user.email, // or user.uid or user.name
+  });
+};
 const TeacherDashboard = ({
   assignments,
   setGrades,
@@ -32,22 +42,38 @@ const TeacherDashboard = ({
       [student]: value,
     }));
   };
+const saveGrades = async (student) => {
+  if (gradeInputs[student]) {
+    setGrades((prev) => ({
+      ...prev,
+      [student]: gradeInputs[student],
+    }));
+  }
 
-  const saveGrades = (student) => {
-    if (gradeInputs[student]) {
-      setGrades((prev) => ({
-        ...prev,
-        [student]: gradeInputs[student],
-      }));
-    }
+  if (assignmentInput[student]) {
+    setAssignmentGrades((prev) => ({
+      ...prev,
+      [student]: assignmentInput[student],
+    }));
+  }
 
-    if (assignmentInput[student]) {
-      setAssignmentGrades((prev) => ({
-        ...prev,
-        [student]: assignmentInput[student],
-      }));
+  // --- Firestore update logic START ---
+  const assignment = assignments.find(a => a.student === student);
+  if (assignment) {
+    try {
+      const ref = doc(db, "assignments", assignment.id);
+      await updateDoc(ref, {
+        grade: assignmentInput[student] || "",
+        subjectGrades: gradeInputs[student] || {},
+      });
+    } catch (err) {
+      console.error("Error saving grades:", err);
     }
-  };
+  }
+  // --- Firestore update logic END ---
+};
+    
+   
 
   const filteredAssignments = assignments.filter(assignment =>
     assignment.student.toLowerCase().includes(searchTerm.toLowerCase())
